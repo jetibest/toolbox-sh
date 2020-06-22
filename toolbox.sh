@@ -288,6 +288,16 @@ tmpdir-user()
 	echo "$path"
 }
 
+# Get fingerprint from host (host defaults to localhost)
+# Usage: ssh-fingerprint-md5 [hostname]
+ssh-fingerprint-md5()
+{
+	# ssh-keyscan fails due to ipv6 if sshd only listens on ipv4, so fallback to -4 for ipv4
+	local hostname="$1"
+	if [ -z "$hostname" ]; then hostname="localhost"; fi
+	ssh-keygen -l -E md5 -f <(ssh-keyscan "$hostname" 2>/dev/null || ssh-keyscan -4 "$hostname" 2>/dev/null)
+}
+
 ssh-setup-passwordless()
 {
 	if ! [ "$(ssh -o PreferredAuthentications=publickey -o PasswordAuthentication=no "$@" 'echo ok' 2>/dev/null)" = "ok" ]
@@ -330,6 +340,8 @@ ssh-with-toolbox()
 	local local_sshport="$(grep -E '^Port\s+[0-9]+$' /etc/ssh/sshd_config 2>/dev/null || echo 22)"
 	local_sshport="${local_sshport##* }"
 	
+	local hostkeyalias="$(whoami)@$(hostname)"
+	
 	# install toolbox temporarily in user temp dir
 	toolbox-install "$(tmpdir-user)toolbox.sh"
 	
@@ -344,7 +356,7 @@ ssh-with-toolbox()
 	source <(curl -s "https://masteryeti.com/toolbox/toolbox.sh") && 
 	toolbox-install "$(tmpdir-user)toolbox.sh" &&
 	echo "Connected to ssh server. Opening reverse toolbox tunnel..." &&
-	tunnel-open "'"$(whoami)"'@127.0.0.1:${__toolbox_tunnel_port[0]}" "${__toolbox_tunnel_name[0]}" &&
+	tunnel-open "'"$(whoami)"'@127.0.0.1:${__toolbox_tunnel_port[0]}" "${__toolbox_tunnel_name[0]}" "'"$hostkeyalias"'" &&
 	$SHELL --init-file <(echo '"'"'source '"'"'"$(tmpdir-user)toolbox.sh"'"'"' || echo "warning: Could not load toolbox."; __toolbox_tunnel_name=('"'"'${__toolbox_tunnel_name[@]}'"'"'); __toolbox_tunnel_port=('"'"'${__toolbox_tunnel_port[@]}'"'"'); source ~/.bashrc;'"'"') -i;
 	tunnel-close "${__toolbox_tunnel_name[0]}"'
 	ssh -t -R "127.0.0.1:$remote_sshport:127.0.0.1:$local_sshport" "$@" "$cmd"
@@ -378,12 +390,14 @@ tunnel-open()
 	echo "$host" >"${tmpdir}${tmpfilename}.host"
 	echo "$port" >"${tmpdir}${tmpfilename}.port"
 	
+	local hostkeyalias="$3"
+	
 	# we may automatically detect that ssh is connecting using a password, and automatically ask to run ssh-copy-id
-	ssh-setup-passwordless -p "$port" "$host"
+	ssh-setup-passwordless -o HostKeyAlias="$hostkeyalias" -p "$port" "$host"
 	
 	if ! [ -e "$tmpfile" ]
 	then
-		ssh -nNf -o "ControlMaster=yes" -o "ControlPath=$tmpfile" -p "$port" "$host"
+		ssh -nNf -o HostKeyAlias="$hostkeyalias" -o "ControlMaster=yes" -o "ControlPath=$tmpfile" -p "$port" "$host"
 	else
 		echo "warning: tunnel-open: ControlPath ($tmpfile) already exists." >&2
 	fi
