@@ -149,9 +149,9 @@ unzip-autodetect-subfolder()
 	
 	if [[ "$directories" == "$subdir" ]]
 	then
-	        exec unzip $force_overwrite "$path"
+	        unzip $force_overwrite "$path"
 	else
-	        exec unzip $force_overwrite "$path" -d "$subdir/"
+	        unzip $force_overwrite "$path" -d "$subdir/"
 	fi
 }
 
@@ -176,10 +176,10 @@ zip-directory()
 	
 	if $force_overwrite
 	then
-		exec zip -r - "$directory/" > "$target_zipfile"
+		zip -r - "$directory/" > "$target_zipfile"
 	elif ! [ -e "$target_zipfile" ]
 	then
-		exec zip -r "$target_zipfile" "$directory/"
+		zip -r "$target_zipfile" "$directory/"
 	else
 		echo "error: Target zip-file exists ($target_zipfile), use -f or --force to override"
 		return 1
@@ -205,7 +205,7 @@ exec-onchange()
     local literalFlag=""
     if [ -z "$cmd" ]; then cmd="$path/$filename"; literalFlag="-Fx"; fi
     
-    exec inotifywait -q --format '%f' -e close_write,moved_to -m "$path" |
+    inotifywait -q --format '%f' -e close_write,moved_to -m "$path" |
     grep --line-buffered $literalFlag "$filename" |
     xargs -l -i /bin/bash -c "$cmd"
 }
