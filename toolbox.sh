@@ -320,25 +320,44 @@ ssh-setup-passwordless()
 }
 
 # SSH with local clipboard options
+# Usage: ssh-with-toolbox [--sshd-port=51022] [--tunnel-port=51099] user@host [-p port]
+#  --sshd-port    Custom port that runs the sshd-service on the current system, defaults to automatically parsing port from /etc/ssh/sshd_config (or 22 if not exists).
+#  --tunnel-port  Set custom listen port for the reverse tunnel (defaults to 51099).
 ssh-with-toolbox()
 {
-	local remote_sshport="$1"
-	if [[ "$remote_sshport" =~ ^[0-9]+$ ]]
+	local local_sshport=""
+	if [[ "$1" == "--sshd-port="* ]]
 	then
+		local_sshport="${1##*=}"
 		shift
-	else
-		remote_sshport="51099"
+	elif [[ "$1" == "--sshd-port" ]]
+	then
+		local_sshport="$2"
+		shift 2
+	fi
+	
+	local remote_sshport="51099"
+	if [[ "$1" == "--tunnel-port="* ]]
+	then
+		remote_sshport="${1##*=}"
+	elif [[ "$1" == "--tunnel-port" ]]
+	then
+		remote_sshport="$2"
+		shift 2
 	fi
 	
 	# ensure sshd is running
-	if command -v systemctl >/dev/null 2>/dev/null && ! systemctl is-active --quiet sshd; then systemctl start sshd;
+	if command -v systemctl >/dev/null 2>/dev/null && ! systemctl is-active --quiet sshd >/dev/null 2>/dev/null; then systemctl start sshd;
 	elif [ -e /etc/init.d/sshd ] && ! /etc/init.d/sshd status >/dev/null 2>/dev/null; then /etc/init.d/sshd start;
-	elif command -v service >/dev/null 2>/dev/null && ! service sshd status; then service sshd start;
+	elif command -v service >/dev/null 2>/dev/null && ! service sshd status >/dev/null 2>/dev/null; then service sshd start;
 	fi
 	
 	# grab local sshd port
-	local local_sshport="$(grep -E '^Port\s+[0-9]+$' /etc/ssh/sshd_config 2>/dev/null || echo 22)"
-	local_sshport="${local_sshport##* }"
+	if [ -z "$local_sshport" ]
+	then
+		local_sshport="$(grep -E '^Port\s+[0-9]+$' /etc/ssh/sshd_config 2>/dev/null || echo 22)"
+		local_sshport="${local_sshport##* }"
+	fi
 	
 	local hostkeyalias="$(whoami)@$(hostname)"
 	
