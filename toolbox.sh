@@ -4,8 +4,8 @@
 # Usage: epoch-to-datetime [epoch]
 epoch-to-datetime()
 {
-	local epoch_to_datetime_code='{if($0 ~ /^[0-9]+\s+/){if(strftime("%Y", $1) > strftime("%Y") + 100){modifier=1000;}else{modifier=1;}print strftime("%Y-%m-%d %H:%M:%S", $1/modifier);$1="";print $0}else{print $0}}'
-	if [[ "$1" != "" ]]
+	local epoch_to_datetime_code='{if($0 ~ /^[0-9]+(\s+|$)/){if(strftime("%Y", $1) > strftime("%Y") + 100){modifier=1000;}else{modifier=1;}printf "%s", strftime("%Y-%m-%d %H:%M:%S", $1/modifier);$1="";print $0}else{print $0}}'
+	if [ -n "$1" ]
 	then
 		echo "$1" | awk "$epoch_to_datetime_code"
 	else
